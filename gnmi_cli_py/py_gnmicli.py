@@ -60,6 +60,8 @@ _RE_PATH_COMPONENT = re.compile(r'''
 INVALID_GNMI_CLIENT_CONNECTION_NUMBER = 1
 GNMI_SERVER_UNAVAILABLE = 2
 
+EVENT_REGEX = 'json_ietf_val: \"(.*)\"'
+
 class Error(Exception):
   """Module-level Exception class."""
 
@@ -162,6 +164,8 @@ def _create_parser():
                       help='Creates specific number of TCP connections with gNMI server side. '
                       'Default number of TCP connections is 1 and use -1 to create '
                       'infinite TCP connections.')
+  parser.add_argument('--filter_event', default='', help='Filter event when querying events path (default: none)')
+  parser.add_argument('--event_op_file', default='', help='Output file for event testing, filtered event must be provided (default: none)')
   parser.add_argument('--prefix', default='', help='gRPC path prefix (default: none)')
   return parser
 
@@ -408,6 +412,19 @@ def gen_request(paths, opt, prefix):
     yield mysubreq
 
 
+def handle_event_response(response, event_op_file):
+    regex_matches = re.search(EVENT_REGEX, str(response))
+    if regex_matches:
+        event_str = regex_matches.group(1)
+        event_str = event_str.replace('\\', '')
+        event_json = json.loads(event_str)
+        with open(event_op_file, "w") as f:
+            f.write("[\n")
+            json.dump(event_json, f, indent=4)
+            f.write("\n]")
+            f.close()
+
+
 def subscribe_start(stub, options, req_iterator):
   """ RPC Start for Subscribe reqeust
   Args:
@@ -419,6 +436,9 @@ def subscribe_start(stub, options, req_iterator):
   """
   metadata = [('username', options['username']), ('password', options['password'])]
   max_update_count = options["update_count"]
+  filter_event = options["filter_event"]
+  event_op_file = options["event_op_file"]
+
   try:
       responses = stub.Subscribe(req_iterator, options['timeout'], metadata=metadata)
       update_count = 0
@@ -430,8 +450,15 @@ def subscribe_start(stub, options, req_iterator):
               print('gNMI Error '+str(response.error.code)+\
                 ' received\n'+str(response.error.message) + str(response.error))
           elif response.HasField('update'):
-              print(response)
-              update_count = update_count+1
+              if filter_event != "":
+                  if filter_event in str(response):
+                      if event_op_file != "":
+                          handle_event_response(response, event_op_file)
+                      print(response)
+                      update_count = update_count + 1
+              else:
+                  print(response)
+                  update_count = update_count+1
           else:
               print('Unknown response received:\n'+str(response))
           
