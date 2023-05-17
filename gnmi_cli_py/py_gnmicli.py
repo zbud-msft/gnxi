@@ -60,8 +60,6 @@ _RE_PATH_COMPONENT = re.compile(r'''
 INVALID_GNMI_CLIENT_CONNECTION_NUMBER = 1
 GNMI_SERVER_UNAVAILABLE = 2
 
-EVENT_REGEX = 'json_ietf_val: \"(.*)\"'
-
 class Error(Exception):
   """Module-level Exception class."""
 
@@ -413,16 +411,9 @@ def gen_request(paths, opt, prefix):
 
 
 def handle_event_response(response, event_op_file):
-    regex_matches = re.search(EVENT_REGEX, str(response))
-    if regex_matches:
-        event_str = regex_matches.group(1)
-        event_str = event_str.replace('\\', '')
-        event_json = json.loads(event_str)
-        with open(event_op_file, "w") as f:
-            f.write("[\n")
-            json.dump(event_json, f, indent=4)
-            f.write("\n]")
-            f.close()
+    with open(event_op_file, "w") as f:
+        f.write(str(response))
+        f.close()
 
 
 def subscribe_start(stub, options, req_iterator):
