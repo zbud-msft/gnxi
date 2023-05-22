@@ -162,8 +162,7 @@ def _create_parser():
                       help='Creates specific number of TCP connections with gNMI server side. '
                       'Default number of TCP connections is 1 and use -1 to create '
                       'infinite TCP connections.')
-  parser.add_argument('--filter_event', default='', help='Filter event when querying events path (default: none)')
-  parser.add_argument('--event_op_file', default='', help='Output file for event testing, filtered event must be provided (default: none)')
+  parser.add_argument('--filter_event_regex', default='', help='Regex to filter event when querying events path (default: none)')
   parser.add_argument('--prefix', default='', help='gRPC path prefix (default: none)')
   return parser
 
@@ -410,10 +409,10 @@ def gen_request(paths, opt, prefix):
     yield mysubreq
 
 
-def handle_event_response(response, event_op_file):
-    with open(event_op_file, "w") as f:
-        f.write(str(response))
-        f.close()
+def check_event_response(response, filter_event_regex):
+    resp = str(response)
+    match = re.match(filter_event_regex, resp)
+    return match is not None
 
 
 def subscribe_start(stub, options, req_iterator):
@@ -427,8 +426,7 @@ def subscribe_start(stub, options, req_iterator):
   """
   metadata = [('username', options['username']), ('password', options['password'])]
   max_update_count = options["update_count"]
-  filter_event = options["filter_event"]
-  event_op_file = options["event_op_file"]
+  filter_event_regex = options["filter_event_regex"]
 
   try:
       responses = stub.Subscribe(req_iterator, options['timeout'], metadata=metadata)
@@ -441,10 +439,8 @@ def subscribe_start(stub, options, req_iterator):
               print('gNMI Error '+str(response.error.code)+\
                 ' received\n'+str(response.error.message) + str(response.error))
           elif response.HasField('update'):
-              if filter_event != "":
-                  if filter_event in str(response):
-                      if event_op_file != "":
-                          handle_event_response(response, event_op_file)
+              if filter_event_regex is not None:
+                  if check_event_response(response, filter_event_regex):
                       print(response)
                       update_count = update_count + 1
               else:
