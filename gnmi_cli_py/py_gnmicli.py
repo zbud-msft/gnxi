@@ -37,6 +37,7 @@ import os
 import re
 import ssl
 import sys
+import string
 import six
 import datetime
 try:
@@ -410,9 +411,9 @@ def gen_request(paths, opt, prefix):
 
 
 def check_event_response(response, filter_event_regex):
-    resp = str(response)
-    match = re.match(filter_event_regex, resp)
-    return match is not None
+    resp = str(response).translate(None, string.whitespace)
+    match = re.findall(filter_event_regex, resp)
+    return match
 
 
 def subscribe_start(stub, options, req_iterator):
@@ -439,9 +440,10 @@ def subscribe_start(stub, options, req_iterator):
               print('gNMI Error '+str(response.error.code)+\
                 ' received\n'+str(response.error.message) + str(response.error))
           elif response.HasField('update'):
-              if filter_event_regex is not None:
-                  if check_event_response(response, filter_event_regex):
-                      print(response)
+              if filter_event_regex is not None and filter_event_regex is not "":
+                  match = check_event_response(response, filter_event_regex)
+                  if len(match) is not 0:
+                      print("{} was found in {}".format(match,response))
                       update_count = update_count + 1
               else:
                   print(response)
