@@ -163,7 +163,7 @@ def _create_parser():
                       help='Creates specific number of TCP connections with gNMI server side. '
                       'Default number of TCP connections is 1 and use -1 to create '
                       'infinite TCP connections.')
-  parser.add_argument('--filter_event_regex', default='', help='Regex to filter event when querying events path (default: none)')
+  parser.add_argument('--filter_event_regex', help='Regex to filter event when querying events path')
   parser.add_argument('--prefix', default='', help='gRPC path prefix (default: none)')
   return parser
 
@@ -411,7 +411,7 @@ def gen_request(paths, opt, prefix):
 
 
 def check_event_response(response, filter_event_regex):
-    resp = str(response).translate(None, string.whitespace)
+    resp = str(response)
     match = re.findall(filter_event_regex, resp)
     return match
 
@@ -440,11 +440,14 @@ def subscribe_start(stub, options, req_iterator):
               print('gNMI Error '+str(response.error.code)+\
                 ' received\n'+str(response.error.message) + str(response.error))
           elif response.HasField('update'):
-              if filter_event_regex is not None and filter_event_regex is not "":
-                  match = check_event_response(response, filter_event_regex)
-                  if len(match) is not 0:
-                      print("{} was found in {}".format(match,response))
-                      update_count = update_count + 1
+              if filter_event_regex is not None:
+                  if filter_event_regex is not "":
+                      match = check_event_response(response, filter_event_regex)
+                      if len(match) is not 0:
+                          print(response)
+                          update_count = update_count + 1
+                  else:
+                      raise Exception("Filter event regex should not be empty")
               else:
                   print(response)
                   update_count = update_count+1
