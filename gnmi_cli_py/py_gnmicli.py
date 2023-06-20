@@ -37,6 +37,7 @@ import os
 import re
 import ssl
 import sys
+import string
 import six
 import datetime
 try:
@@ -162,6 +163,7 @@ def _create_parser():
                       help='Creates specific number of TCP connections with gNMI server side. '
                       'Default number of TCP connections is 1 and use -1 to create '
                       'infinite TCP connections.')
+  parser.add_argument('--filter_event_regex', help='Regex to filter event when querying events path')
   parser.add_argument('--prefix', default='', help='gRPC path prefix (default: none)')
   return parser
 
@@ -408,6 +410,12 @@ def gen_request(paths, opt, prefix):
     yield mysubreq
 
 
+def check_event_response(response, filter_event_regex):
+    resp = str(response)
+    match = re.findall(filter_event_regex, resp)
+    return match
+
+
 def subscribe_start(stub, options, req_iterator):
   """ RPC Start for Subscribe reqeust
   Args:
@@ -419,6 +427,8 @@ def subscribe_start(stub, options, req_iterator):
   """
   metadata = [('username', options['username']), ('password', options['password'])]
   max_update_count = options["update_count"]
+  filter_event_regex = options["filter_event_regex"]
+
   try:
       responses = stub.Subscribe(req_iterator, options['timeout'], metadata=metadata)
       update_count = 0
@@ -430,8 +440,17 @@ def subscribe_start(stub, options, req_iterator):
               print('gNMI Error '+str(response.error.code)+\
                 ' received\n'+str(response.error.message) + str(response.error))
           elif response.HasField('update'):
-              print(response)
-              update_count = update_count+1
+              if filter_event_regex is not None:
+                  if filter_event_regex is not "":
+                      match = check_event_response(response, filter_event_regex)
+                      if len(match) is not 0:
+                          print(response)
+                          update_count = update_count + 1
+                  else:
+                      raise Exception("Filter event regex should not be empty")
+              else:
+                  print(response)
+                  update_count = update_count+1
           else:
               print('Unknown response received:\n'+str(response))
           
