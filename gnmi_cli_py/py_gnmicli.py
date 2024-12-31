@@ -230,7 +230,7 @@ def _path_names(xpath):
       end += 1
 
   if insideBrackets:
-    print("missing ] in path string: %s" % xpath)
+    print("missing ] in path string: {}".format(xpath))
     return []
 
   return path
@@ -505,9 +505,9 @@ def subscribe_start(stub, options, req_iterator):
                 ' received\n'+str(response.error.message) + str(response.error))
           elif response.HasField('update'):
               if filter_event_regex is not None:
-                  if filter_event_regex is not "":
+                  if filter_event_regex != "":
                       match = check_event_response(response, filter_event_regex)
-                      if len(match) is not 0:
+                      if len(match) != 0:
                           print(response)
                           update_count = update_count + 1
                   else:
